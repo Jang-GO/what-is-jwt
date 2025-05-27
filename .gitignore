@@ -37,5 +37,6 @@ out/
 .vscode/
 
 ### yml ###
-*.yml
 application.yml
+application.properties
+
