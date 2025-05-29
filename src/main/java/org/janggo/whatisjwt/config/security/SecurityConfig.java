@@ -1,6 +1,7 @@
 package org.janggo.whatisjwt.config.security;
 
 import org.janggo.whatisjwt.service.RefreshTokenService;
+import org.janggo.whatisjwt.util.jwt.JwtAuthenticationFilter;
 import org.janggo.whatisjwt.util.jwt.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,17 +50,21 @@ public class SecurityConfig {
                         .anyRequest().authenticated()  // 나머지는 인증 필요
                 )
                 .formLogin(AbstractHttpConfigurer::disable)
+                .addFilterBefore(createJwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAt(createLoginFilter(authenticationManager, jwtUtil, refreshTokenService), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     // 로그인 필터 설정 코드 부분
-    private static LoginFilter createLoginFilter(AuthenticationManager authenticationManager,
-                                                 JwtUtil jwtUtil, RefreshTokenService refreshTokenService) {
+    private static LoginFilter createLoginFilter(AuthenticationManager authenticationManager, JwtUtil jwtUtil, RefreshTokenService refreshTokenService) {
         LoginFilter loginFilter = new LoginFilter(jwtUtil, refreshTokenService);
         loginFilter.setAuthenticationManager(authenticationManager);
         loginFilter.setFilterProcessesUrl("/api/auth/login");
         return loginFilter;
+    }
+
+    private static JwtAuthenticationFilter createJwtAuthenticationFilter(JwtUtil jwtUtil){
+        return new JwtAuthenticationFilter(jwtUtil);
     }
 }

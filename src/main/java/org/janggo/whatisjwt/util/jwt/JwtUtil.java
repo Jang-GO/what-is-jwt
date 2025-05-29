@@ -129,4 +129,9 @@ public class JwtUtil {
     private Claims getClaims(String token) {
         return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload();
     }
+
+    public Long getUserIdFromRefreshToken(String refreshToken) {
+        String userIdStr = getClaims(refreshToken).getSubject();
+        return Long.parseLong(userIdStr);
+    }
 }
