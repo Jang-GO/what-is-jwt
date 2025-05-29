@@ -1,6 +1,7 @@
 package org.janggo.whatisjwt.config.security;
 
-import org.janggo.whatisjwt.util.jwt.LoginFilter;
+import org.janggo.whatisjwt.service.RefreshTokenService;
+import org.janggo.whatisjwt.util.jwt.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -34,10 +35,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationManager authenticationManager) throws Exception {
-        LoginFilter loginFilter = new LoginFilter();
-        loginFilter.setAuthenticationManager(authenticationManager);
-
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   AuthenticationManager authenticationManager,
+                                                   JwtUtil jwtUtil, RefreshTokenService refreshTokenService) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
 
@@ -49,8 +49,17 @@ public class SecurityConfig {
                         .anyRequest().authenticated()  // 나머지는 인증 필요
                 )
                 .formLogin(AbstractHttpConfigurer::disable)
-                .addFilterAt(loginFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterAt(createLoginFilter(authenticationManager, jwtUtil, refreshTokenService), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // 로그인 필터 설정 코드 부분
+    private static LoginFilter createLoginFilter(AuthenticationManager authenticationManager,
+                                                 JwtUtil jwtUtil, RefreshTokenService refreshTokenService) {
+        LoginFilter loginFilter = new LoginFilter(jwtUtil, refreshTokenService);
+        loginFilter.setAuthenticationManager(authenticationManager);
+        loginFilter.setFilterProcessesUrl("/api/auth/login");
+        return loginFilter;
     }
 }
