@@ -93,9 +93,7 @@ public class JwtUtil {
                     .verifyWith(secretKey)
                     .build()
                     .parseSignedClaims(token);
-
             return true;
-
         } catch (SecurityException | MalformedJwtException e) {
             log.error("잘못된 JWT 서명입니다: {}", e.getMessage());
         } catch (ExpiredJwtException e) {

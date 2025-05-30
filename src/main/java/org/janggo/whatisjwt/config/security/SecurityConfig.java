@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,11 +19,17 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private static final String[] WHITE_LIST = {
             "/api/auth/**",
             "/login",
+            "/index.html",
+            "/jwt-manager.js",
+            "/",
+            "favicon.ico",
+            "/api/test/public"
     };
 
     @Bean
@@ -38,7 +45,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    AuthenticationManager authenticationManager,
-                                                   JwtUtil jwtUtil, RefreshTokenService refreshTokenService) throws Exception {
+                                                   JwtUtil jwtUtil, RefreshTokenService refreshTokenService,
+                                                   CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
+                                                   CustomAccessDeniedHandler customAccessDeniedHandler) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
 
@@ -51,7 +60,11 @@ public class SecurityConfig {
                 )
                 .formLogin(AbstractHttpConfigurer::disable)
                 .addFilterBefore(createJwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
-                .addFilterAt(createLoginFilter(authenticationManager, jwtUtil, refreshTokenService), UsernamePasswordAuthenticationFilter.class);
+                .addFilterAt(createLoginFilter(authenticationManager, jwtUtil, refreshTokenService), UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(ex -> {
+                    ex.accessDeniedHandler(customAccessDeniedHandler);
+                    ex.authenticationEntryPoint(customAuthenticationEntryPoint);
+                });
 
         return http.build();
     }
