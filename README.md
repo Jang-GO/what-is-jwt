@@ -188,7 +188,145 @@ graph TB
 <div id="3"></div>
 
 ## JWT란?
+**JWT(JSON Web Token)** 는 웹 표준(RFC 7519)으로 정의된 토큰 기반 인증 방식으로, JSON 객체를 사용하여 당사자 간에 정보를 안전하게 전송할 수 있는 Self-Contained 방식의 토큰입니다.
 
+JWT는 **클레임(Claim) 기반 토큰**으로, 토큰 자체에 사용자 정보와 권한 정보가 포함되어 있어 서버가 별도의 상태를 저장할 필요가 없는 **Stateless** 특성을 가집니다.
+```mermaid
+graph TB
+    JWT[🎫 JWT 토큰] --> Header[📋 Header<br/>헤더]
+    JWT --> Payload[📦 Payload<br/>페이로드]
+    JWT --> Signature[🔐 Signature<br/>서명]
+    
+    Header --> HeaderContent["🔧 토큰 타입 (typ)<br/>🔒 암호화 알고리즘 (alg)<br/>🔑 키 식별자 (kid)"]
+    Payload --> PayloadContent["👤 사용자 정보<br/>⏰ 만료 시간 (exp)<br/>🏢 발급자 (iss)<br/>📝 권한 정보"]
+    Signature --> SignatureContent["✅ 헤더 + 페이로드<br/>🔐 비밀키로 암호화<br/>🛡️ 위변조 방지"]
+    
+    style Header fill:#e3f2fd
+    style Payload fill:#e8f5e8
+    style Signature fill:#fff3e0
+    style HeaderContent fill:#f3e5f5
+    style PayloadContent fill:#f1f8e9
+    style SignatureContent fill:#fef7e0
+```
+JWT는 **점(.)으로 구분된 세 부분**으로 구성되며, 각 부분은 Base64URL 인코딩 방식으로 인코딩됩니다.
+- **Header** : 헤더는 토큰의 메타데이터를 포함하며, 주로 다음 정보들이 담겨 있습니다
+  - typ (Type): 토큰의 타입
+  - alg (Algorithm) : 서명에 사용되는 암호화 알고리즘
+    - HS256: HMAC SHA-256 (대칭키 방식)
+    - RS256: RSA SHA-256 (비대칭키 방식)
+  - kid (Key ID): 서명 시 사용하는 키를 식별하는 값(여러 키를 관리할 때 사용)
+```json
+{
+  "alg": "HS256",
+  "typ": "JWT",
+  "kid": "key-id-1"
+}
+```
+<br>
+
+- **Payload** : 실제 전달하고자 하는 정보인 클레임들을 포함합니다. 클레임은 Key-Value 형태로 구성되며 크게 세 가지 종류로 구분됩니다.
+1. 등록된 클레임 : JWT 표준에서 미리 정의된 클레임들로, 사용은 선택적입니다.
+   - iss(issuer) : 토큰 발급자
+   - sub (Subject): 토큰 제목 (주로 사용자 식별자)
+   - aud (Audience): 토큰 대상자
+   - exp (Expiration): 토큰 만료 시간 (Unix Timestamp)
+   - nbf (Not Before): 토큰 활성 시작 시간
+   - iat (Issued At): 토큰 발급 시간
+   - jti (JWT ID): JWT의 고유 식별자
+2. 공개 클레임 : 충돌 방지를 위해 URI 형식으로 이름을 짓는 클레임들
+3. 비공개 클레임 : 당사자들 간에 정보 공유를 위해 만든 사용자 정의 클레임들
+```json
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "role": "admin"
+}
+```
+<br>
+
+- **Signature** : 토큰의 무결성과 인증을 보장하는 부분. 헤더에서 정의한 알고리즘을 사용하여 다음과 같이 생성됩니다.
+```javascript
+HMACSHA256(
+  base64UrlEncode(header) + "." + base64UrlEncode(payload),
+  secret
+)
+```
+```mermaid
+graph LR
+    Header[📋 Header] --> Encode1[Base64URL 인코딩]
+    Payload[📦 Payload] --> Encode2[Base64URL 인코딩]
+    
+    Encode1 --> Concat[문자열 연결]
+    Encode2 --> Concat
+    SecretKey[🔑 비밀키] --> Sign[🔐 암호화]
+    Concat --> Sign
+    
+    Sign --> Signature[✅ Signature]
+    
+    style Header fill:#e3f2fd
+    style Payload fill:#e8f5e8
+    style SecretKey fill:#ffebee
+    style Signature fill:#fff3e0
+
+```
+
+**JWT 인증 과정**
+```mermaid
+sequenceDiagram
+    participant C as 👤 클라이언트
+    participant S as 🖥️ 서버
+    participant DB as 🗄️ 데이터베이스
+    
+    Note over C,DB: 1. 로그인 과정
+    C->>S: 🔐 로그인 요청 (username, password)
+    S->>DB: 👤 사용자 인증 확인
+    DB-->>S: ✅ 인증 성공
+    S->>S: 🎫 JWT 토큰 생성 (Header + Payload + Signature)
+    S-->>C: 📤 JWT 토큰 응답
+    C->>C: 💾 토큰 저장 (localStorage, sessionStorage 등)
+    
+    Note over C,DB: 2. 인증된 요청 과정
+    C->>S: 📝 API 요청 + Authorization: Bearer {JWT}
+    S->>S: 🔍 토큰 서명 검증
+    S->>S: ⏰ 토큰 만료 시간 확인
+    S->>S: 📋 페이로드에서 사용자 정보 추출
+    S-->>C: ⚡ 요청 처리 결과 응답
+    
+    Note over C,DB: 3. 토큰 만료 시
+    C->>S: 📝 API 요청 + 만료된 토큰
+    S->>S: ❌ 토큰 검증 실패
+    S-->>C: 🚫 401 Unauthorized
+    C->>S: 🔄 토큰 갱신 요청 (Refresh Token)
+    S-->>C: 🎫 새로운 Access Token
+```
+**JWT 보안 고려사항**
+```mermaid
+graph TD
+    Security[🛡️ JWT 보안 고려사항] --> Storage[💾 안전한 저장]
+    Security --> Expiration[⏰ 적절한 만료 시간]
+    Security --> Refresh[🔄 Refresh Token 활용]
+    Security --> Validation[🔍 철저한 검증]
+    
+    Storage --> HttpOnly[🍪 HttpOnly 쿠키]
+    Storage --> Secure[🔒 Secure 플래그]
+    Storage --> SameSite[🛡️ SameSite 속성]
+    
+    Expiration --> ShortLived[⚡ 짧은 Access Token]
+    Expiration --> LongLived[🕐 긴 Refresh Token]
+    
+    Refresh --> RTR[🔄 Refresh Token Rotation]
+    Refresh --> Secure2[🔐 안전한 저장소]
+    
+    Validation --> Signature[✅ 서명 검증]
+    Validation --> Claims[📋 클레임 검증]
+    Validation --> Blacklist[🚫 블랙리스트 관리]
+    
+    style Security fill:#ffebee
+    style Storage fill:#e8f5e8
+    style Expiration fill:#e3f2fd
+    style Refresh fill:#fff3e0
+    style Validation fill:#f3e5f5
+```
 <div id="4"></div>
 
 ## 스프링 시큐리티에서 토큰기반 인증 흐름
